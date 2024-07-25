@@ -111,7 +111,7 @@ timss_data_2007_school_id_228 <-
 ```
 
 
-## Figure 1: Distribution of match fixed effect {.tabset}
+## Figure 1: Distribution of absolute match fixed effects {.tabset}
 
 
 ```{r, echo=FALSE, results="asis"}
