@@ -33,6 +33,53 @@ timss_data_2007 <-
         )
       )
   )
+make_constraint <-
+  function(target_data){
+    constraints_teacher <- FALSE
+    for (x in target_data %>% select(teacher_id) %>% unique() %>% pull()){
+      const <- FALSE
+      for (y in target_data %>% filter(teacher_id == x) %>% select(student_id) %>% unique() %>% pull()){
+        if (const != FALSE){
+          const <- paste(const, sprintf("student_teacher%s_%s", y, x), sep = " + ")
+        } else{
+          const <- sprintf("student_teacher%s_%s", y, x)
+        }
+      }
+      const <- paste(const, "= 0")
+      if (constraints_teacher != FALSE){
+        constraints_teacher <- paste(constraints_teacher, const, sep = " & ")
+      } else {
+        constraints_teacher <- const
+      }
+    }
+    
+    constraints_student <- FALSE
+    for (x in target_data %>% select(student_id) %>% unique() %>% pull()){
+      const <- FALSE
+      for (y in target_data %>% filter(student_id == x) %>% select(teacher_id) %>% unique() %>% pull()){
+        if (const != FALSE){
+          const <- paste(const, sprintf("student_teacher%s_%s", x, y), sep = " + ")
+        } else{
+          const <- sprintf("student_teacher%s_%s", x, y)
+        }
+      }
+      const <- paste(const, "= 0")
+      if (constraints_student != FALSE){
+        constraints_student <- paste(constraints_student, const, sep = " & ")
+      } else {
+        constraints_student <- const
+      }
+    }
+    
+    constraints <- 
+      paste(
+        constraints_teacher,
+        constraints_student, 
+        sep = " & "
+      )
+    return(constraints)
+  }
+## ----
 # transform ----
 ## timss_data_n_teacher_1_2007 ----
 target_data_n_teacher_1 <- 
@@ -324,6 +371,14 @@ formula_list_subsample <-
       )
     )
   )
+### with constraint ----
+formula_for_constraint = as.formula(
+  paste(
+    "value ~ -1 + major_match",
+    "+",
+    "student_teacher"
+  )
+)
 
 # estimate ----
 ## estimate whole sample like Inoue and Tanaka ----
@@ -359,6 +414,35 @@ result_benchmark_list_school_id_228 <-
   )
 modelsummary::modelsummary(result_benchmark_list_school_id_228)
 
+### with restriction ----
+
+constraints <-
+  make_constraint(
+    target_data = target_data_school_id_228
+    )
+
+fit.unrestricted <- 
+  lm(
+    formula = formula_for_constraint, 
+    data = target_data_school_id_228 %>% 
+      mutate(
+        student_teacher = 
+          as.factor(
+            paste(
+              student_id, 
+              teacher_id,
+              sep = "_"
+              )
+            )
+        )
+    )
+fit.constrained <- 
+  restriktor(
+    fit.unrestricted, 
+    constraints = constraints
+    )
+summary(fit.constrained)
+
 # save ----
 saveRDS(
   result_benchmark_n_teacher_1_list,
@@ -372,56 +456,6 @@ saveRDS(
   result_benchmark_list_school_id_228,
   file = here::here(paste("output/","result_benchmark_list_school_id_228",".rds",sep = ""))
 )
-
-constraints_teacher <- FALSE
-for (x in target_data_school_id_228 %>% select(teacher_id) %>% unique() %>% pull()){
-  const <- FALSE
-  for (y in target_data_school_id_228 %>% filter(teacher_id == x) %>% select(student_id) %>% unique() %>% pull()){
-    if (const != FALSE){
-      const <- paste(const, sprintf("student_teacher%s_%s", y, x), sep = " + ")
-    } else{
-      const <- sprintf("student_teacher%s_%s", y, x)
-    }
-  }
-  const <- paste(const, "= 0")
-  if (constraints_teacher != FALSE){
-    constraints_teacher <- paste(constraints_teacher, const, sep = " & ")
-  } else {
-    constraints_teacher <- const
-  }
-}
-
-constraints_student <- FALSE
-for (x in target_data_school_id_228 %>% select(student_id) %>% unique() %>% pull()){
-  const <- FALSE
-  for (y in target_data_school_id_228 %>% filter(student_id == x) %>% select(teacher_id) %>% unique() %>% pull()){
-    if (const != FALSE){
-      const <- paste(const, sprintf("student_teacher%s_%s", x, y), sep = " + ")
-    } else{
-      const <- sprintf("student_teacher%s_%s", x, y)
-    }
-  }
-  const <- paste(const, "= 0")
-  if (constraints_student != FALSE){
-    constraints_student <- paste(constraints_student, const, sep = " & ")
-  } else {
-    constraints_student <- const
-  }
-}
-
-constraints <- paste(constraints_teacher, constraints_student, sep = " & ")
-
-formula = as.formula(
-  paste(
-    "value ~ -1 + major_match",
-    "+",
-    "student_teacher"
-  )
-)
-
-fit.unrestricted <- lm(formula, data = target_data_school_id_228 %>% mutate(student_teacher = as.factor(paste(student_id, teacher_id, sep = "_"))))
-fit.constrained <-  restriktor(fit.unrestricted, constraints = constraints)
-summary(fit.constrained)
 saveRDS(
   fit.constrained,
   file = here::here(paste("output/","result_school_id_228_constrained",".rds",sep = ""))

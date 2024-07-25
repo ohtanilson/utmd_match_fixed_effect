@@ -115,6 +115,7 @@ timss_data_2007_school_id_228 <-
 
 
 ```{r, echo=FALSE, results="asis"}
+summary(result_school_id_228_constrained)
 names <-
   names(result_school_id_228_constrained$b.restr)
 beta_restr <-
@@ -140,7 +141,9 @@ target_table <-
     timss_data_2007_school_id_228,
     by = c("student_id" = "student_id")
   )
-
+# unique(target_table$student_id)
+# unique(target_table$teacher_id)
+# unique(timss_data_2007_school_id_228$student_id)
 x <-
   ggplot(target_table, 
        aes(x = reorder(student_id, value), 
