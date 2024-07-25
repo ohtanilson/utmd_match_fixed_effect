@@ -3,7 +3,7 @@ gc()
 gc()
 
 library(magrittr)
-library(dplyr)
+#library(dplyr)
 library(tidyverse)
 library(stringr)
 library(restriktor)
@@ -33,6 +33,7 @@ timss_data_2007 <-
         )
       )
   )
+# make constraint ----
 make_constraint <-
   function(target_data){
     constraints_teacher <- FALSE
@@ -167,8 +168,16 @@ target_data <-
           as.character(teacher_id),
           sep="_"
         )
+      ),
+    student_teacher = 
+      as.factor(
+        paste(
+          student_id, 
+          teacher_id,
+          sep = "_"
+        )
       )
-  )
+  ) 
 
 
 
@@ -201,7 +210,7 @@ target_data_school_id_228 <-
   target_data %>% 
   dplyr::filter(
     school_id == 228
-  )
+  ) 
 
 # make formula ----
 covariate_interest_list <-
@@ -415,7 +424,6 @@ result_benchmark_list_school_id_228 <-
 modelsummary::modelsummary(result_benchmark_list_school_id_228)
 
 ### with restriction ----
-
 constraints <-
   make_constraint(
     target_data = target_data_school_id_228
@@ -424,17 +432,7 @@ constraints <-
 fit.unrestricted <- 
   lm(
     formula = formula_for_constraint, 
-    data = target_data_school_id_228 %>% 
-      mutate(
-        student_teacher = 
-          as.factor(
-            paste(
-              student_id, 
-              teacher_id,
-              sep = "_"
-              )
-            )
-        )
+    data = target_data_school_id_228 
     )
 fit.constrained <- 
   restriktor(
