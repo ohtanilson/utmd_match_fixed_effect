@@ -1,0 +1,5654 @@
+---
+title: "04_3_monte_carlo_results"
+author: "Suguru Otani"
+date: "2024-01-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# load {.tabset}
+
+```{r, echo=FALSE,results = "asis"}
+rm(list = ls())
+library(magrittr)
+library(ggplot2)
+library(modelsummary) # for N in datasummary
+library(here)
+num_process_list <-
+  c(
+    10,
+    20,
+    30,
+    40,
+    50,
+    100#,
+    #500
+  )
+
+num_agent_category_list <-
+  list(c(5,5),c(5,10),c(5,20),c(5,30),c(5,50),c(10,5),c(10,10),c(10,20),c(10,30),c(10,50),c(20,5),c(20,10),c(20,20),c(20,30),c(30,5),c(30,10),c(30,20),c(50,5),c(50,10))
+here::here()
+for(i in 1:length(num_agent_category_list)){
+  num_agents <- num_agent_category_list[[i]][1]
+  num_category <- num_agent_category_list[[i]][2]
+  for(nn in 1:length(num_process_list)){
+    temp_nn <-
+      num_process_list[nn]
+    # bias 
+    filename <-
+      paste(
+        "bias_table_",
+        "num_process_",
+        temp_nn,
+        "_num_agents_",
+        num_agents,
+        "_num_category_",
+        num_category,
+        #".rds",
+        sep = ""
+      )
+    cat(filename,"\n")
+    # load 
+    temp_data <-
+      readRDS(
+        file = 
+          here::here(
+            paste(
+              "output/",
+              filename,
+              ".rds",
+              sep = ""
+            )
+          )
+      )
+    assign(
+      filename,
+      temp_data
+      )
+    # t-stat
+    filename <-
+      paste(
+        "t_stats_table_",
+        "num_process_",
+        temp_nn,
+        "_num_agents_",
+        num_agents,
+        "_num_category_",
+        num_category,
+        #".rds",
+        sep = ""
+      )
+    cat(filename,"\n")
+    # load 
+    temp_data <-
+      readRDS(
+        file = 
+          here::here(
+            paste(
+              "output/",
+              filename,
+              ".rds",
+              sep = ""
+            )
+          )
+      )
+    assign(
+      filename,
+      temp_data
+      )
+    # beta-hat
+    filename <-
+      paste(
+        "beta_hat_table_",
+        "num_process_",
+        temp_nn,
+        "_num_agents_",
+        num_agents,
+        "_num_category_",
+        num_category,
+        #".rds",
+        sep = ""
+      )
+    cat(filename,"\n")
+    # load 
+    temp_data <-
+      readRDS(
+        file = 
+          here::here(
+            paste(
+              "output/",
+              filename,
+              ".rds",
+              sep = ""
+            )
+          )
+      )
+    assign(
+      filename,
+      temp_data
+      )
+  }
+}
+
+```
+
+The regression model on outcome $Y_{ijt}$ is specified as follows:
+
+$Y_{ijt}=\alpha_{i}+\beta_{j}+\mu_{ij}+\varepsilon_{ijt}$
+
+where $\alpha_{i}$ is worker $i$’s fixed effect, $\beta_{j}$ is category $j$’s fixed effect, $\mu_{ij}$ is $(i,j)$-match effect, and $\varepsilon_{ijt}$ is assumed to be i.i.d standard normal error.
+
+As true DGP, we fix the above parameters as follows:
+
+- $i\in \{1,2,\cdots,20\}$: worker id
+- $j\in\{1,2,\cdots,10\}$: category id
+- $t\in\{1,2,\cdots,T\}$: we call the number of process
+- $\alpha_{i}$= worker id
+- $\beta_{j}$= category id
+- $\mu_{ij}\sim i.i.d. N(0,1)$+10
+- As a result, we have 200 parameters.
+
+Identification
+
+- Worker 1 and Category 1
+    - $Y_{11t}=\underbrace{\alpha_{1}+\beta_{1}+\mu_{11}}_{constant}+\varepsilon_{11t}$
+- Worker 1 and Category 2
+    - $Y_{12t}=\alpha_{1}+\beta_{2}+\mu_{12}+\varepsilon_{12t}\\
+    =\underbrace{\alpha_{1}+\beta_{1}+\mu_{11}}_{constant}+\underbrace{(\beta_{2}-\beta_{1})+(\mu_{12}-\mu_{11})}_{category 2 FE}+\varepsilon_{12t}$
+- Worker 2 and Category 1
+    - $Y_{21t}=\alpha_{2}+\beta_{1}+\mu_{21}+\varepsilon_{21t}\\
+    =\underbrace{\alpha_{1}+\beta_{1}+\mu_{11}}_{constant}+\underbrace{(\alpha_{2}-\alpha_{1})+(\mu_{21}-\mu_{11})}_{worker 2 FE}+\varepsilon_{21t}$
+- Worker 2 and Category 2
+    - $Y_{22t}=\alpha_{2}+\beta_{2}+\mu_{22}+\varepsilon_{22t}\\
+    =\underbrace{\alpha_{1}+\beta_{1}+\mu_{11}}_{constant}+\underbrace{(\beta_{2}-\beta_{1})+(\mu_{12}-\mu_{11})}_{category 2 FE}+\underbrace{(\alpha_{2}-\alpha_{1})+(\mu_{21}-\mu_{11})}_{worker 2 FE}+\underbrace{(\mu_{22}+\mu_{11}-\mu_{12}-\mu_{21})}_{(2,2)-match effect}+\varepsilon_{22t}\\
+    =\underbrace{\alpha_{1}+\beta_{1}+\mu_{11}}_{constant}+\underbrace{(\beta_{2}-\beta_{1})+(\mu_{12}-\mu_{11})}_{category 2 FE}+\underbrace{(\alpha_{2}-\alpha_{1})+(\mu_{21}-\mu_{11})}_{worker 2 FE}+\underbrace{(\mu_{22}-(\mu_{12}-\mu_{11})-(\mu_{21}-\mu_{11}) -\mu_{11})}_{(2,2)-match effect}+\varepsilon_{22t}$
+- In general, Worker $i\neq1$ and Category  $j\neq1$
+    - $Y_{ijt}=\alpha_{i}+\beta_{j}+\mu_{ij}+\varepsilon_{ijt}\\
+    =\underbrace{\alpha_{1}+\beta_{1}+\mu_{11}}_{constant}+\underbrace{(\beta_{j}-\beta_{1})+(\mu_{1j}-\mu_{11})}_{category j FE}+\underbrace{(\alpha_{i}-\alpha_{1})+(\mu_{i1}-\mu_{11})}_{worker i FE}+\underbrace{(\mu_{ij}+\mu_{11}-\mu_{1j}-\mu_{i1})}_{(i,j)-match effect}+\varepsilon_{ijt}\\
+    =\underbrace{\alpha_{1}+\beta_{1}+\mu_{11}}_{constant}+\underbrace{(\beta_{j}-\beta_{1})+(\mu_{1j}-\mu_{11})}_{category j FE}+\underbrace{(\alpha_{i}-\alpha_{1})+(\mu_{i1}-\mu_{11})}_{worker i FE}+\underbrace{(\mu_{ij}-(\mu_{1j}-\mu_{11})-(\mu_{i1}-\mu_{11}) -\mu_{11})}_{(i,j)-match effect}+\varepsilon_{ijt}$
+- Therefore,  $\alpha_{i}$ is worker $i$’s fixed effect, $\beta_{j}$ is category $j$’s fixed effect, and $\mu_{ij}$ is $(i,j)$-match effect cannot be identified separately.
+- Affinity(相性) is measured by the “relative” fixed effect compared to worker 1 and category 1.
+
+
+# Bias and power results {.tabset}
+
+Bias should be mean zero. Rejection probability based on t-statistics should be more than 0.8 at significance level $\alpha= 0.05$ for reasonable power (検出力).
+
+## Benchmark data worker=20, category=10 {.tabset}
+
+### num_process = 10, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_20_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_20_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+num_agent <- 20
+num_category <- 10
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_10_num_agents_20_num_category_10),
+    colSums(t_stats_table_num_process_10_num_agents_20_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 20, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_20_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_20_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_20_num_agents_20_num_category_10),
+    colSums(t_stats_table_num_process_20_num_agents_20_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 30, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_20_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_20_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_30_num_agents_20_num_category_10),
+    colSums(t_stats_table_num_process_30_num_agents_20_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 40, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_20_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_20_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_40_num_agents_20_num_category_10),
+    colSums(t_stats_table_num_process_40_num_agents_20_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 50, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_20_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_20_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_50_num_agents_20_num_category_10),
+    colSums(t_stats_table_num_process_50_num_agents_20_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 100, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_20_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_20_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_100_num_agents_20_num_category_10),
+    colSums(t_stats_table_num_process_100_num_agents_20_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+## worker=5, category=5 {.tabset}
+
+### num_process = 10, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_5_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_5_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+num_agent <- 5
+num_category <- 5
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_10_num_agents_5_num_category_5),
+    colSums(t_stats_table_num_process_10_num_agents_5_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 20, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_5_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_5_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_20_num_agents_5_num_category_5),
+    colSums(t_stats_table_num_process_20_num_agents_5_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 30, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_5_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_5_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_30_num_agents_5_num_category_5),
+    colSums(t_stats_table_num_process_30_num_agents_5_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 40, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_5_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_5_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_40_num_agents_5_num_category_5),
+    colSums(t_stats_table_num_process_40_num_agents_5_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 50, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_5_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_5_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_50_num_agents_5_num_category_5),
+    colSums(t_stats_table_num_process_50_num_agents_5_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 100, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_5_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_5_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_100_num_agents_5_num_category_5),
+    colSums(t_stats_table_num_process_100_num_agents_5_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+## worker=5, category=10 {.tabset}
+
+### num_process = 10, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_5_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_5_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+num_agent <- 5
+num_category <- 10
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_10_num_agents_5_num_category_10),
+    colSums(t_stats_table_num_process_10_num_agents_5_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 20, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_5_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_5_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_20_num_agents_5_num_category_10),
+    colSums(t_stats_table_num_process_20_num_agents_5_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 30, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_5_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_5_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_30_num_agents_5_num_category_10),
+    colSums(t_stats_table_num_process_30_num_agents_5_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 40, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_5_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_5_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_40_num_agents_5_num_category_10),
+    colSums(t_stats_table_num_process_40_num_agents_5_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 50, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_5_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_5_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_50_num_agents_5_num_category_10),
+    colSums(t_stats_table_num_process_50_num_agents_5_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 100, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_5_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_5_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_100_num_agents_5_num_category_10),
+    colSums(t_stats_table_num_process_100_num_agents_5_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+## worker=5, category=20 {.tabset}
+
+### num_process = 10, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_5_num_category_20
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_5_num_category_20
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+num_agent <- 5
+num_category <- 20
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_10_num_agents_5_num_category_20),
+    colSums(t_stats_table_num_process_10_num_agents_5_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 20, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_5_num_category_20
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_5_num_category_20
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_20_num_agents_5_num_category_20),
+    colSums(t_stats_table_num_process_20_num_agents_5_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 30, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_5_num_category_20
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_5_num_category_20
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_30_num_agents_5_num_category_20),
+    colSums(t_stats_table_num_process_30_num_agents_5_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 40, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_5_num_category_20
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_5_num_category_20
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_40_num_agents_5_num_category_20),
+    colSums(t_stats_table_num_process_40_num_agents_5_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 50, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_5_num_category_20
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_5_num_category_20
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_50_num_agents_5_num_category_20),
+    colSums(t_stats_table_num_process_50_num_agents_5_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 100, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_5_num_category_20
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_5_num_category_20
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_100_num_agents_5_num_category_20),
+    colSums(t_stats_table_num_process_100_num_agents_5_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+## worker=5, category=30 {.tabset}
+
+### num_process = 10, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_5_num_category_30
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_5_num_category_30
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+num_agent <- 5
+num_category <- 30
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_10_num_agents_5_num_category_30),
+    colSums(t_stats_table_num_process_10_num_agents_5_num_category_30 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 20, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_5_num_category_30
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_5_num_category_30
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_20_num_agents_5_num_category_30),
+    colSums(t_stats_table_num_process_20_num_agents_5_num_category_30 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 30, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_5_num_category_30
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_5_num_category_30
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_30_num_agents_5_num_category_30),
+    colSums(t_stats_table_num_process_30_num_agents_5_num_category_30 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 40, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_5_num_category_30
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_5_num_category_30
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_40_num_agents_5_num_category_30),
+    colSums(t_stats_table_num_process_40_num_agents_5_num_category_30 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 50, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_5_num_category_30
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_5_num_category_30
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_50_num_agents_5_num_category_30),
+    colSums(t_stats_table_num_process_50_num_agents_5_num_category_30 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 100, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_5_num_category_30
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_5_num_category_30
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_100_num_agents_5_num_category_30),
+    colSums(t_stats_table_num_process_100_num_agents_5_num_category_30 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+## worker=5, category=50 {.tabset}
+
+### num_process = 10, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_5_num_category_50
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_5_num_category_50
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+num_agent <- 5
+num_category <- 50
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_10_num_agents_5_num_category_50),
+    colSums(t_stats_table_num_process_10_num_agents_5_num_category_50 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 20, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_5_num_category_50
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_5_num_category_50
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_20_num_agents_5_num_category_50),
+    colSums(t_stats_table_num_process_20_num_agents_5_num_category_50 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 30, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_5_num_category_50
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_5_num_category_50
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_30_num_agents_5_num_category_50),
+    colSums(t_stats_table_num_process_30_num_agents_5_num_category_50 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 40, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_5_num_category_50
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_5_num_category_50
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_40_num_agents_5_num_category_50),
+    colSums(t_stats_table_num_process_40_num_agents_5_num_category_50 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 50, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_5_num_category_50
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_5_num_category_50
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_50_num_agents_5_num_category_50),
+    colSums(t_stats_table_num_process_50_num_agents_5_num_category_50 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 100, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_5_num_category_50
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_5_num_category_50
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_100_num_agents_5_num_category_50),
+    colSums(t_stats_table_num_process_100_num_agents_5_num_category_50 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+## worker=10, category=5 {.tabset}
+
+### num_process = 10, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_10_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_10_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+num_agent <- 10
+num_category <- 5
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_10_num_agents_10_num_category_5),
+    colSums(t_stats_table_num_process_10_num_agents_10_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 20, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_10_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_10_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_20_num_agents_10_num_category_5),
+    colSums(t_stats_table_num_process_20_num_agents_10_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 30, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_10_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_10_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_30_num_agents_10_num_category_5),
+    colSums(t_stats_table_num_process_30_num_agents_10_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 40, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_10_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_10_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_40_num_agents_10_num_category_5),
+    colSums(t_stats_table_num_process_40_num_agents_10_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 50, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_10_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_10_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_50_num_agents_10_num_category_5),
+    colSums(t_stats_table_num_process_50_num_agents_10_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 100, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_10_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_10_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_100_num_agents_10_num_category_5),
+    colSums(t_stats_table_num_process_100_num_agents_10_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+## worker=10, category=10 {.tabset}
+
+### num_process = 10, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_10_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_10_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+num_agent <- 10
+num_category <- 10
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_10_num_agents_10_num_category_10),
+    colSums(t_stats_table_num_process_10_num_agents_10_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 20, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_10_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_10_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_20_num_agents_10_num_category_10),
+    colSums(t_stats_table_num_process_20_num_agents_10_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 30, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_10_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_10_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_30_num_agents_10_num_category_10),
+    colSums(t_stats_table_num_process_30_num_agents_10_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 40, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_10_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_10_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_40_num_agents_10_num_category_10),
+    colSums(t_stats_table_num_process_40_num_agents_10_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 50, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_10_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_10_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_50_num_agents_10_num_category_10),
+    colSums(t_stats_table_num_process_50_num_agents_10_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 100, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_10_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_10_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_100_num_agents_10_num_category_10),
+    colSums(t_stats_table_num_process_100_num_agents_10_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+## worker=10, category=20 {.tabset}
+
+### num_process = 10, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_10_num_category_20
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_10_num_category_20
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+num_agent <- 10
+num_category <- 20
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_10_num_agents_10_num_category_20),
+    colSums(t_stats_table_num_process_10_num_agents_10_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 20, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_10_num_category_20
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_10_num_category_20
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_20_num_agents_10_num_category_20),
+    colSums(t_stats_table_num_process_20_num_agents_10_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 30, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_10_num_category_20
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_10_num_category_20
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_30_num_agents_10_num_category_20),
+    colSums(t_stats_table_num_process_30_num_agents_10_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 40, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_10_num_category_20
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_10_num_category_20
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_40_num_agents_10_num_category_20),
+    colSums(t_stats_table_num_process_40_num_agents_10_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 50, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_10_num_category_20
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_10_num_category_20
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_50_num_agents_10_num_category_20),
+    colSums(t_stats_table_num_process_50_num_agents_10_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 100, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_10_num_category_20
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_10_num_category_20
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_100_num_agents_10_num_category_20),
+    colSums(t_stats_table_num_process_100_num_agents_10_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+## worker=10, category=30 {.tabset}
+
+### num_process = 10, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+num_agent <- 10
+num_category <- 30
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_10_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_10_num_category_30[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_10_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_10_num_category_30[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_10_num_agents_10_num_category_30),
+    colSums(t_stats_table_num_process_10_num_agents_10_num_category_30 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 20, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_10_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_10_num_category_30[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_10_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_10_num_category_30[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_20_num_agents_10_num_category_30),
+    colSums(t_stats_table_num_process_20_num_agents_10_num_category_30 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 30, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_10_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_10_num_category_30[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_10_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_10_num_category_30[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_30_num_agents_10_num_category_30),
+    colSums(t_stats_table_num_process_30_num_agents_10_num_category_30 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 40, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_10_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_10_num_category_30[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_10_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_10_num_category_30[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_40_num_agents_10_num_category_30),
+    colSums(t_stats_table_num_process_40_num_agents_10_num_category_30 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 50, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_10_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_10_num_category_30[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_10_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_10_num_category_30[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_50_num_agents_10_num_category_30),
+    colSums(t_stats_table_num_process_50_num_agents_10_num_category_30 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 100, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_10_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_10_num_category_30[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_10_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_10_num_category_30[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_100_num_agents_10_num_category_30),
+    colSums(t_stats_table_num_process_100_num_agents_10_num_category_30 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+## worker=10, category=50 {.tabset}
+
+### num_process = 10, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+num_agent <- 10
+num_category <- 50
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_10_num_category_50[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_10_num_category_50[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_10_num_category_50[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_10_num_category_50[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_10_num_agents_10_num_category_50),
+    colSums(t_stats_table_num_process_10_num_agents_10_num_category_50 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 20, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_10_num_category_50[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_10_num_category_50[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_10_num_category_50[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_10_num_category_50[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_20_num_agents_10_num_category_50),
+    colSums(t_stats_table_num_process_20_num_agents_10_num_category_50 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 30, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_10_num_category_50[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_10_num_category_50[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_10_num_category_50[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_10_num_category_50[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_30_num_agents_10_num_category_50),
+    colSums(t_stats_table_num_process_30_num_agents_10_num_category_50 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 40, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_10_num_category_50[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_10_num_category_50[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_10_num_category_50[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_10_num_category_50[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_40_num_agents_10_num_category_50),
+    colSums(t_stats_table_num_process_40_num_agents_10_num_category_50 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 50, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_10_num_category_50[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_10_num_category_50[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_10_num_category_50[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_10_num_category_50[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_50_num_agents_10_num_category_50),
+    colSums(t_stats_table_num_process_50_num_agents_10_num_category_50 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 100, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_10_num_category_50[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_10_num_category_50[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_10_num_category_50[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_10_num_category_50[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_100_num_agents_10_num_category_50),
+    colSums(t_stats_table_num_process_100_num_agents_10_num_category_50 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+## worker=20, category=5 {.tabset}
+
+### num_process = 10, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+num_agent <- 20
+num_category <- 5
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_20_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_20_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_10_num_agents_20_num_category_5),
+    colSums(t_stats_table_num_process_10_num_agents_20_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 20, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_20_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_20_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_20_num_agents_20_num_category_5),
+    colSums(t_stats_table_num_process_20_num_agents_20_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 30, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_20_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_20_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_30_num_agents_20_num_category_5),
+    colSums(t_stats_table_num_process_30_num_agents_20_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 40, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_20_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_20_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_40_num_agents_20_num_category_5),
+    colSums(t_stats_table_num_process_40_num_agents_20_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 50, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_20_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_20_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_50_num_agents_20_num_category_5),
+    colSums(t_stats_table_num_process_50_num_agents_20_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 100, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_20_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_20_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_100_num_agents_20_num_category_5),
+    colSums(t_stats_table_num_process_100_num_agents_20_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+## worker=20, category=10 {.tabset}
+
+### num_process = 10, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+num_agent <- 20
+num_category <- 10
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_20_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_20_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_10_num_agents_20_num_category_10),
+    colSums(t_stats_table_num_process_10_num_agents_20_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 20, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_20_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_20_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_20_num_agents_20_num_category_10),
+    colSums(t_stats_table_num_process_20_num_agents_20_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 30, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_20_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_20_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_30_num_agents_20_num_category_10),
+    colSums(t_stats_table_num_process_30_num_agents_20_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 40, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_20_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_20_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_40_num_agents_20_num_category_10),
+    colSums(t_stats_table_num_process_40_num_agents_20_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 50, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_20_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_20_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_50_num_agents_20_num_category_10),
+    colSums(t_stats_table_num_process_50_num_agents_20_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 100, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_20_num_category_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_20_num_category_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_100_num_agents_20_num_category_10),
+    colSums(t_stats_table_num_process_100_num_agents_20_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+## worker=20, category=20 {.tabset}
+
+### num_process = 10, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+num_agent <- 20
+num_category <- 20
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_20_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_20_num_category_20[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_20_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_20_num_category_20[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_10_num_agents_20_num_category_20),
+    colSums(t_stats_table_num_process_10_num_agents_20_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 20, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_20_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_20_num_category_20[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_20_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_20_num_category_20[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_20_num_agents_20_num_category_20),
+    colSums(t_stats_table_num_process_20_num_agents_20_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 30, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_20_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_20_num_category_20[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_20_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_20_num_category_20[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_30_num_agents_20_num_category_20),
+    colSums(t_stats_table_num_process_30_num_agents_20_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 40, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_20_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_20_num_category_20[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_20_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_20_num_category_20[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_40_num_agents_20_num_category_20),
+    colSums(t_stats_table_num_process_40_num_agents_20_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 50, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_20_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_20_num_category_20[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_20_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_20_num_category_20[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_50_num_agents_20_num_category_20),
+    colSums(t_stats_table_num_process_50_num_agents_20_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 100, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_20_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_20_num_category_20[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_20_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_20_num_category_20[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_100_num_agents_20_num_category_20),
+    colSums(t_stats_table_num_process_100_num_agents_20_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+## worker=20, category=30 {.tabset}
+
+### num_process = 10, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+num_agent <- 20
+num_category <- 30
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_20_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_20_num_category_30[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_20_num_category_30[501:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_20_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_20_num_category_30[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_20_num_category_30[501:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_10_num_agents_20_num_category_30),
+    colSums(t_stats_table_num_process_10_num_agents_20_num_category_30 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 20, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_20_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_20_num_category_30[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_20_num_category_30[501:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_20_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_20_num_category_30[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_20_num_category_30[501:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_20_num_agents_20_num_category_30),
+    colSums(t_stats_table_num_process_20_num_agents_20_num_category_30 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 30, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_20_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_20_num_category_30[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_20_num_category_30[501:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_20_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_20_num_category_30[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_20_num_category_30[501:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_30_num_agents_20_num_category_30),
+    colSums(t_stats_table_num_process_30_num_agents_20_num_category_30 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 40, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_20_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_20_num_category_30[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_20_num_category_30[501:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_20_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_20_num_category_30[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_20_num_category_30[501:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_40_num_agents_20_num_category_30),
+    colSums(t_stats_table_num_process_40_num_agents_20_num_category_30 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 50, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_20_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_20_num_category_30[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_20_num_category_30[501:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_20_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_20_num_category_30[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_20_num_category_30[501:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_50_num_agents_20_num_category_30),
+    colSums(t_stats_table_num_process_50_num_agents_20_num_category_30 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 100, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_20_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_20_num_category_30[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_20_num_category_30[501:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_20_num_category_30[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_20_num_category_30[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_20_num_category_30[501:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_100_num_agents_20_num_category_30),
+    colSums(t_stats_table_num_process_100_num_agents_20_num_category_30 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+## worker=30, category=5 {.tabset}
+
+### num_process = 10, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+num_agent <- 30
+num_category <- 5
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_30_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_30_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_10_num_agents_30_num_category_5),
+    colSums(t_stats_table_num_process_10_num_agents_30_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 20, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_30_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_30_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_20_num_agents_30_num_category_5),
+    colSums(t_stats_table_num_process_20_num_agents_30_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 30, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_30_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_30_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_30_num_agents_30_num_category_5),
+    colSums(t_stats_table_num_process_30_num_agents_30_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 40, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_30_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_30_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_40_num_agents_30_num_category_5),
+    colSums(t_stats_table_num_process_40_num_agents_30_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 50, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_30_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_30_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_50_num_agents_30_num_category_5),
+    colSums(t_stats_table_num_process_50_num_agents_30_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 100, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_30_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_30_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_100_num_agents_30_num_category_5),
+    colSums(t_stats_table_num_process_100_num_agents_30_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+## worker=30, category=10 {.tabset}
+
+### num_process = 10, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+num_agent <- 30
+num_category <- 10
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_30_num_category_10[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_30_num_category_10[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_30_num_category_10[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_30_num_category_10[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_10_num_agents_30_num_category_10),
+    colSums(t_stats_table_num_process_10_num_agents_30_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 20, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_30_num_category_10[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_30_num_category_10[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_30_num_category_10[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_30_num_category_10[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_20_num_agents_30_num_category_10),
+    colSums(t_stats_table_num_process_20_num_agents_30_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 30, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_30_num_category_10[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_30_num_category_10[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_30_num_category_10[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_30_num_category_10[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_30_num_agents_30_num_category_10),
+    colSums(t_stats_table_num_process_30_num_agents_30_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 40, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_30_num_category_10[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_30_num_category_10[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_30_num_category_10[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_30_num_category_10[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_40_num_agents_30_num_category_10),
+    colSums(t_stats_table_num_process_40_num_agents_30_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 50, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_30_num_category_10[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_30_num_category_10[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_30_num_category_10[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_30_num_category_10[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_50_num_agents_30_num_category_10),
+    colSums(t_stats_table_num_process_50_num_agents_30_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 100, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_30_num_category_10[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_30_num_category_10[251:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_30_num_category_10[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_30_num_category_10[251:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_100_num_agents_30_num_category_10),
+    colSums(t_stats_table_num_process_100_num_agents_30_num_category_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+## worker=30, category=20 {.tabset}
+
+### num_process = 10, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+num_agent <- 30
+num_category <- 20
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_30_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_30_num_category_20[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_30_num_category_20[501:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_30_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_30_num_category_20[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_30_num_category_20[501:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_10_num_agents_30_num_category_20),
+    colSums(t_stats_table_num_process_10_num_agents_30_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 20, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_30_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_30_num_category_20[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_30_num_category_20[501:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_30_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_30_num_category_20[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_30_num_category_20[501:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_20_num_agents_30_num_category_20),
+    colSums(t_stats_table_num_process_20_num_agents_30_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 30, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_30_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_30_num_category_20[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_30_num_category_20[501:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_30_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_30_num_category_20[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_30_num_category_20[501:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_30_num_agents_30_num_category_20),
+    colSums(t_stats_table_num_process_30_num_agents_30_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 40, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_30_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_30_num_category_20[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_30_num_category_20[501:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_30_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_30_num_category_20[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_30_num_category_20[501:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_40_num_agents_30_num_category_20),
+    colSums(t_stats_table_num_process_40_num_agents_30_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 50, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_30_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_30_num_category_20[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_30_num_category_20[501:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_30_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_30_num_category_20[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_30_num_category_20[501:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_50_num_agents_30_num_category_20),
+    colSums(t_stats_table_num_process_50_num_agents_30_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 100, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_30_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_30_num_category_20[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_30_num_category_20[501:(num_agent*num_category)]
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_30_num_category_20[1:250]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_30_num_category_20[251:500]
+  )
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_30_num_category_20[501:(num_agent*num_category)]
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_100_num_agents_30_num_category_20),
+    colSums(t_stats_table_num_process_100_num_agents_30_num_category_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+## worker=50, category=5 {.tabset}
+
+### num_process = 10, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+num_agent <- 50
+num_category <- 5
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10_num_agents_50_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10_num_agents_50_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_10_num_agents_50_num_category_5),
+    colSums(t_stats_table_num_process_10_num_agents_50_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 20, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_20_num_agents_50_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_20_num_agents_50_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_20_num_agents_50_num_category_5),
+    colSums(t_stats_table_num_process_20_num_agents_50_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 30, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_30_num_agents_50_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_30_num_agents_50_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_30_num_agents_50_num_category_5),
+    colSums(t_stats_table_num_process_30_num_agents_50_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 40, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_40_num_agents_50_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_40_num_agents_50_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_40_num_agents_50_num_category_5),
+    colSums(t_stats_table_num_process_40_num_agents_50_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 50, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_50_num_agents_50_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50_num_agents_50_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_50_num_agents_50_num_category_5),
+    colSums(t_stats_table_num_process_50_num_agents_50_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```
+
+### num_process = 100, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_100_num_agents_50_num_category_5
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100_num_agents_50_num_category_5
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_100_num_agents_50_num_category_5),
+    colSums(t_stats_table_num_process_100_num_agents_50_num_category_5 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[(num_agent+num_category):(num_agent*num_category)]>0.8),
+  " out of ", num_agent*num_category-num_agent-num_category+1
+  )
+```

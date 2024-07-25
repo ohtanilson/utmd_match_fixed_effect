@@ -1,0 +1,174 @@
+---
+title: "03_construct_figuretable"
+author: "Suguru Otani"
+date: "2024-07-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# load {.tabset}
+
+```{r, echo=FALSE,results = "asis"}
+rm(list = ls())
+library(magrittr)
+library(ggplot2)
+library(modelsummary) # for N in datasummary
+result_benchmark_list_school_id_228 <-
+    readRDS(
+      file = 
+        here::here(
+          paste(
+            "output/",
+            "result_benchmark_list_school_id_228",
+            ".rds",
+            sep = ""
+          )
+        )
+    )
+result_school_id_228_constrained <-
+    readRDS(
+      file = 
+        here::here(
+          paste(
+            "output/",
+            "result_school_id_228_constrained",
+            ".rds",
+            sep = ""
+          )
+        )
+    )
+timss_data_2007_school_id_228 <-
+  readRDS(
+    file = 
+      here::here(
+        paste(
+          "cleaned/",
+          "timss_data_2007",
+          ".rds",
+          sep = ""
+        )
+      )
+  ) %>% 
+  tidyr::pivot_longer(
+    starts_with("score")
+  ) %>% 
+  dplyr::mutate(
+    subfield = 
+      as.factor(
+        ifelse(
+          stringr::str_detect(name,"physics"), 
+          "physics", 
+          ifelse(
+            stringr::str_detect(name, "chemistry"), 
+            "chemistry", 
+            ifelse(
+              stringr::str_detect(name,"biology"),
+              "biology", 
+              "earth"
+            )
+          )
+        )
+      ),
+    major_match = 
+      ifelse(
+        (
+          (stringr::str_detect(name,"physics"))&(major_physics=="YES")|
+            (stringr::str_detect(name,"chemistry"))&(major_chemistry=="YES")|
+            (stringr::str_detect(name,"biology"))&(major_bioligy=="YES")|
+            (stringr::str_detect(name,"earth"))&(major_earth=="YES")
+        ),
+        1,
+        0
+      ),
+    student_teacher_id = 
+      as.factor(
+        paste(
+          as.character(country_id),
+          as.character(student_id),
+          as.character(teacher_id),
+          sep="_"
+        )
+      )
+  ) %>% 
+  dplyr::filter(
+    school_id == 228
+  ) %>% 
+  dplyr::arrange(
+    subfield
+  ) %>% 
+  dplyr::distinct(
+    student_id,
+    .keep_all = TRUE
+  ) %>% 
+  dplyr::select(
+    student_id,
+    subfield,
+    value
+  )
+```
+
+
+## Figure 1: Distribution of match fixed effect {.tabset}
+
+
+```{r, echo=FALSE, results="asis"}
+names <-
+  names(result_school_id_228_constrained$b.restr)
+beta_restr <-
+  as.numeric(result_school_id_228_constrained$b.restr)
+student_id <-
+  as.numeric(sub(".*student_teacher(\\d+)_.*", "\\1", names))
+teacher_id <- 
+  as.numeric(sub(".*student_teacher\\d+_(\\d+)", "\\1", names))
+target_table <-
+  cbind(
+    student_id,
+    teacher_id,
+    beta_restr
+  ) %>% 
+  tibble::as_tibble() %>% 
+  dplyr::filter(
+    student_id >= -9999 #drop terms except match fixed effect
+  ) %>% 
+  dplyr::mutate(
+    beta_restr = as.numeric(beta_restr)
+  ) %>% 
+  dplyr::left_join(
+    timss_data_2007_school_id_228,
+    by = c("student_id" = "student_id")
+  )
+
+x <-
+  ggplot(target_table, 
+       aes(x = reorder(student_id, value), 
+           y = as.factor(teacher_id),
+           fill = beta_restr)
+       ) +
+  geom_tile(alpha = 0.8) +
+  scale_fill_gradient(low = "red", high = "blue", name = "match FE") +
+  xlab("Student ID (sorted by test score, biology)") +
+  ylab("Teacher ID") +
+  labs(colour = "") +
+  #ggtitle("Heatmap of match fixed effect") +
+  theme_classic() + 
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = rel(0.2)),
+    legend.text = element_text(size = rel(0.5)),  #
+    legend.title = element_text(size = rel(0.5)) 
+  )
+x
+figure_name <-
+      paste(
+        "../figuretable/heatmap_match_effect",
+        ".png",
+        sep = ""
+        )
+ggsave(filename = figure_name,
+       plot = x,
+       device = "png",
+       width = 4,
+       height = 3)
+```

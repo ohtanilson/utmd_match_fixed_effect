@@ -1,0 +1,112 @@
+---
+title: "02_estimate_tmss2007"
+author: "Suguru Otani"
+date: "2024-07-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# load {.tabset}
+
+```{r, echo=FALSE,results = "asis"}
+rm(list = ls())
+library(magrittr)
+library(ggplot2)
+library(modelsummary) # for N in datasummary
+
+result_benchmark_list <-
+    readRDS(
+      file = 
+        here::here(
+          paste(
+            "output/",
+            "result_benchmark_list",
+            ".rds",
+            sep = ""
+          )
+        )
+    )
+result_benchmark_n_teacher_1_list <-
+    readRDS(
+      file = 
+        here::here(
+          paste(
+            "output/",
+            "result_benchmark_n_teacher_1_list",
+            ".rds",
+            sep = ""
+          )
+        )
+    )
+result_benchmark_list_school_id_228 <-
+    readRDS(
+      file = 
+        here::here(
+          paste(
+            "output/",
+            "result_benchmark_list_school_id_228",
+            ".rds",
+            sep = ""
+          )
+        )
+    )
+result_school_id_228_constrained <-
+    readRDS(
+      file = 
+        here::here(
+          paste(
+            "output/",
+            "result_school_id_228_constrained",
+            ".rds",
+            sep = ""
+          )
+        )
+    )
+
+```
+
+## whole sample 2007 {.tabset}
+
+### result_benchmark_list (Without restriction)
+
+```{r, echo=FALSE, results="asis"}
+modelsummary::modelsummary(result_benchmark_list)
+```
+
+### result_constrained_model_list (With restriction)
+
+```{r, echo=FALSE, results="asis"}
+
+```
+
+## whole sample n_teacher==1 2007 {.tabset}
+
+### result_benchmark_list (Without restriction)
+
+```{r, echo=FALSE, results="asis"}
+modelsummary::modelsummary(result_benchmark_n_teacher_1_list)
+```
+
+### result_constrained_model_list (With restriction)
+
+```{r, echo=FALSE, results="asis"}
+
+```
+
+## subsample 2007 (school_id_228) {.tabset}
+
+### result_benchmark_list_school_id_228 (Without restriction)
+
+```{r, echo=FALSE, results="asis"}
+modelsummary::modelsummary(result_benchmark_list_school_id_228)
+```
+
+### result_constrained_model_list (With restriction)
+
+```{r, echo=FALSE, results="asis"}
+summary(result_school_id_228_constrained)
+
+```

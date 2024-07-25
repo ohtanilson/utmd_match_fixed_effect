@@ -1,0 +1,126 @@
+---
+title: "00_codebook"
+author: "Suguru Otani"
+date: "2024-07-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# load {.tabset}
+
+```{r, echo=FALSE,results = "asis"}
+rm(list = ls())
+library(magrittr)
+library(ggplot2)
+library(modelsummary) # for N in datasummary
+library(summarytools)
+library(dplyr)
+library(tidyverse)
+
+timss_data_2007 <-
+    readRDS(
+      file = 
+        here::here(
+          paste(
+            "cleaned/",
+            "timss_data_2007",
+            ".rds",
+            sep = ""
+          )
+        )
+    )
+```
+
+## timss_data_2007 {.tabset}
+
+### numeric
+
+You can also embed plots, for example:
+
+```{r, echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  timss_data_2007,
+  "numeric"
+  )
+
+```
+
+### character
+
+You can also embed plots, for example:
+
+```{r, echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  timss_data_2007,
+  "categorical"
+  )
+```
+
+## descritive statistics {.tabset}
+
+### Outcome Variables
+```{r, echo=FALSE,results="asis"}
+timss_data_2007 %>% 
+  select(
+    starts_with("score")
+  ) %>%
+  descr()
+```
+
+### Independent Variables
+#### Teacher
+
+```{r, echo=FALSE, results="asis"}
+
+timss_data_2007 %>% 
+  distinct(country_id, teacher_id, .keep_all = TRUE) %>% 
+  select(
+    teacher_sex, teacher_education_year, graduate_degree, num_student,
+    time_physics, time_chemistry, time_biology, time_earth,
+    majors_one, majors_two, majors_three, majors_four,
+    major_physics, major_chemistry, major_bioligy, major_earth,
+    range_topics_physics, range_topics_chemistry, range_topics_biology, range_topics_earth,
+    prepare_physics, prepare_chemistry, prepare_biology, prepare_earth,
+  ) %>% 
+  mutate(
+    teacher_sex = ifelse(teacher_sex == "FEMALE", 1, 0),
+    across(c(graduate_degree, major_physics, major_chemistry, major_bioligy, major_earth, majors_one, majors_two, majors_three, majors_four), ~(ifelse(.x == "YES", 1, 0)))
+  ) %>% 
+  descr()
+```
+
+#### School
+
+```{r, echo=FALSE, results="asis"}
+timss_data_2007 %>% 
+  distinct(
+    country_id, school_id, .keep_all = TRUE
+  ) %>% 
+  select(
+    enrollment_grade8
+  ) %>% 
+  descr()
+```
+#### Student and Family
+
+```{r, echo=FALSE, results="asis"}
+timss_data_2007 %>% 
+  distinct(
+    country_id, student_id, .keep_all = TRUE
+  ) %>% 
+  select(
+    parent_education, student_sex
+  ) %>% 
+  mutate(
+    parent_education = ifelse(parent_education=="POST UNIV", 1, 0),
+    student_sex = ifelse(student_sex=="GIRL",1,0)
+  ) %>% 
+  descr()
+
+```
+

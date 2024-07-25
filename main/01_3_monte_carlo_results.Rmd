@@ -1,0 +1,422 @@
+---
+title: "04_3_monte_carlo_results"
+author: "Suguru Otani"
+date: "2024-01-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# load {.tabset}
+
+```{r, echo=FALSE,results = "asis"}
+rm(list = ls())
+library(magrittr)
+library(ggplot2)
+library(modelsummary) # for N in datasummary
+num_process_list <-
+  c(
+    10,
+    20,
+    30,
+    40,
+    50,
+    100,
+    500
+  )
+for(nn in 1:length(num_process_list)){
+  temp_nn <-
+    num_process_list[nn]
+  # bias 
+  filename <-
+    paste(
+      "bias_table_",
+      "num_process_",
+      temp_nn,
+      #".rds",
+      sep = ""
+    )
+  cat(filename,"\n")
+  # load 
+  temp_data <-
+    readRDS(
+      file = 
+        here::here(
+          paste(
+            "output/",
+            filename,
+            ".rds",
+            sep = ""
+          )
+        )
+    )
+  assign(
+    filename,
+    temp_data
+    )
+  # t-stat
+  filename <-
+    paste(
+      "t_stats_table_",
+      "num_process_",
+      temp_nn,
+      #".rds",
+      sep = ""
+    )
+  cat(filename,"\n")
+  # load 
+  temp_data <-
+    readRDS(
+      file = 
+        here::here(
+          paste(
+            "output/",
+            filename,
+            ".rds",
+            sep = ""
+          )
+        )
+    )
+  assign(
+    filename,
+    temp_data
+    )
+  # beta hat
+  filename <-
+    paste(
+      "beta_hat_table_",
+      "num_process_",
+      temp_nn,
+      #".rds",
+      sep = ""
+    )
+  cat(filename,"\n")
+  # load 
+  temp_data <-
+    readRDS(
+      file = 
+        here::here(
+          paste(
+            "output/",
+            filename,
+            ".rds",
+            sep = ""
+          )
+        )
+    )
+  assign(
+    filename,
+    temp_data
+    )
+}
+
+```
+
+The regression model on outcome $Y_{ijt}$ is specified as follows:
+
+$Y_{ijt}=\alpha_{i}+\beta_{j}+\mu_{ij}+\varepsilon_{ijt}$
+
+where $\alpha_{i}$ is worker $i$’s fixed effect, $\beta_{j}$ is category $j$’s fixed effect, $\mu_{ij}$ is $(i,j)$-match effect, and $\varepsilon_{ijt}$ is assumed to be i.i.d standard normal error.
+
+As true DGP, we fix the above parameters as follows:
+
+- $i\in \{1,2,\cdots,20\}$: worker id
+- $j\in\{1,2,\cdots,10\}$: category id
+- $t\in\{1,2,\cdots,T\}$: we call the number of process
+- $\alpha_{i}$= worker id
+- $\beta_{j}$= category id
+- $\mu_{ij}\sim i.i.d. N(0,1)$+10
+- As a result, we have 200 parameters.
+
+Identification
+
+- Worker 1 and Category 1
+    - $Y_{11t}=\underbrace{\alpha_{1}+\beta_{1}+\mu_{11}}_{constant}+\varepsilon_{11t}$
+- Worker 1 and Category 2
+    - $Y_{12t}=\alpha_{1}+\beta_{2}+\mu_{12}+\varepsilon_{12t}\\
+    =\underbrace{\alpha_{1}+\beta_{1}+\mu_{11}}_{constant}+\underbrace{(\beta_{2}-\beta_{1})+(\mu_{12}-\mu_{11})}_{category 2 FE}+\varepsilon_{12t}$
+- Worker 2 and Category 1
+    - $Y_{21t}=\alpha_{2}+\beta_{1}+\mu_{21}+\varepsilon_{21t}\\
+    =\underbrace{\alpha_{1}+\beta_{1}+\mu_{11}}_{constant}+\underbrace{(\alpha_{2}-\alpha_{1})+(\mu_{21}-\mu_{11})}_{worker 2 FE}+\varepsilon_{21t}$
+- Worker 2 and Category 2
+    - $Y_{22t}=\alpha_{2}+\beta_{2}+\mu_{22}+\varepsilon_{22t}\\
+    =\underbrace{\alpha_{1}+\beta_{1}+\mu_{11}}_{constant}+\underbrace{(\beta_{2}-\beta_{1})+(\mu_{12}-\mu_{11})}_{category 2 FE}+\underbrace{(\alpha_{2}-\alpha_{1})+(\mu_{21}-\mu_{11})}_{worker 2 FE}+\underbrace{(\mu_{22}+\mu_{11}-\mu_{12}-\mu_{21})}_{(2,2)-match effect}+\varepsilon_{22t}\\
+    =\underbrace{\alpha_{1}+\beta_{1}+\mu_{11}}_{constant}+\underbrace{(\beta_{2}-\beta_{1})+(\mu_{12}-\mu_{11})}_{category 2 FE}+\underbrace{(\alpha_{2}-\alpha_{1})+(\mu_{21}-\mu_{11})}_{worker 2 FE}+\underbrace{(\mu_{22}-(\mu_{12}-\mu_{11})-(\mu_{21}-\mu_{11}) -\mu_{11})}_{(2,2)-match effect}+\varepsilon_{22t}$
+- In general, Worker $i\neq1$ and Category  $j\neq1$
+    - $Y_{ijt}=\alpha_{i}+\beta_{j}+\mu_{ij}+\varepsilon_{ijt}\\
+    =\underbrace{\alpha_{1}+\beta_{1}+\mu_{11}}_{constant}+\underbrace{(\beta_{j}-\beta_{1})+(\mu_{1j}-\mu_{11})}_{category j FE}+\underbrace{(\alpha_{i}-\alpha_{1})+(\mu_{i1}-\mu_{11})}_{worker i FE}+\underbrace{(\mu_{ij}+\mu_{11}-\mu_{1j}-\mu_{i1})}_{(i,j)-match effect}+\varepsilon_{ijt}\\
+    =\underbrace{\alpha_{1}+\beta_{1}+\mu_{11}}_{constant}+\underbrace{(\beta_{j}-\beta_{1})+(\mu_{1j}-\mu_{11})}_{category j FE}+\underbrace{(\alpha_{i}-\alpha_{1})+(\mu_{i1}-\mu_{11})}_{worker i FE}+\underbrace{(\mu_{ij}-(\mu_{1j}-\mu_{11})-(\mu_{i1}-\mu_{11}) -\mu_{11})}_{(i,j)-match effect}+\varepsilon_{ijt}$
+- Therefore,  $\alpha_{i}$ is worker $i$’s fixed effect, $\beta_{j}$ is category $j$’s fixed effect, and $\mu_{ij}$ is $(i,j)$-match effect cannot be identified separately.
+- Affinity(相性) is measured by the “relative” fixed effect compared to worker 1 and category 1.
+
+
+# Bias and power results {.tabset}
+
+Bias should be mean zero. Rejection probability based on t-statistics should be more than 0.8 at significance level $\alpha= 0.05$ for reasonable power (検出力).
+
+## Benchmark data {.tabset}
+
+### num_process = 10, num_simulation = 100 {.tabset}
+
+#### beta hat
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  beta_hat_table_num_process_10
+  )
+```
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_10),
+    colSums(t_stats_table_num_process_10 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[30:200]>0.8),
+  " out of 171"
+  )
+```
+
+
+
+### num_process = 20, num_simulation = 100 {.tabset}
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_20),
+    colSums(t_stats_table_num_process_20 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[30:200]>0.8),
+  " out of 171"
+  )
+```
+
+### num_process = 30, num_simulation = 100 {.tabset}
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10
+  )
+```
+
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_30),
+    colSums(t_stats_table_num_process_30 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[30:200]>0.8),
+  " out of 171"
+  )
+```
+
+
+### num_process = 40, num_simulation = 100 {.tabset}
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_10
+  )
+```
+
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_40),
+    colSums(t_stats_table_num_process_40 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[30:200]>0.8),
+  " out of 171"
+  )
+```
+
+### num_process = 50, num_simulation = 100 {.tabset}
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_50
+  )
+```
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_50),
+    colSums(t_stats_table_num_process_50 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[30:200]>0.8),
+  " out of 171"
+  )
+```
+
+### num_process = 100, num_simulation = 100 {.tabset}
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_100
+  )
+```
+
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_100),
+    colSums(t_stats_table_num_process_100 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[30:200]>0.8),
+  " out of 171"
+  )
+```
+
+
+
+### num_process = 500, num_simulation = 100 {.tabset}
+
+#### Bias
+
+```{r,echo=FALSE,results = "asis"}
+modelsummary::datasummary_skim(
+  fmt = 3,
+  bias_table_num_process_500
+  )
+```
+
+
+#### Power 
+
+```{r,echo=FALSE,results = "asis"}
+target_power_table <-
+  cbind(
+    colnames(t_stats_table_num_process_500),
+    colSums(t_stats_table_num_process_500 > 1.96)/100
+    ) %>% 
+  tibble::as_tibble()
+colnames(target_power_table) <-
+  c(
+    "coefficient",
+    "rejection_probability"
+    )
+target_power_table %>% 
+  kableExtra::kable() %>% 
+  kableExtra::kable_styling()
+cat(
+  "Significant match effect number =",
+  sum(target_power_table$rejection_probability[30:200]>0.8),
+  " out of 171"
+  )
+```
