@@ -205,13 +205,17 @@ temp %>%
   dplyr::filter(
     school_id == 228
   )
+
+
+
 # focus on n_teacher >= 5
 target_data_school_id_228 <-
   target_data %>% 
   dplyr::filter(
     school_id == 228
   ) 
-
+length(unique(target_data_school_id_228$teacher_id))
+length(unique(target_data_school_id_228$student_id))
 # make formula ----
 covariate_interest_list <-
   paste(
@@ -383,7 +387,8 @@ formula_list_subsample <-
 ### with constraint ----
 formula_for_constraint = as.formula(
   paste(
-    "value ~ -1 + major_match",
+    "value ~ -1 + major_match + factor(subfield)",
+    #"value ~ -1 + major_match + factor(subfield)",
     "+",
     "student_teacher"
   )
@@ -434,6 +439,7 @@ fit.unrestricted <-
     formula = formula_for_constraint, 
     data = target_data_school_id_228 
     )
+summary(fit.unrestricted)
 fit.constrained <- 
   restriktor(
     fit.unrestricted, 

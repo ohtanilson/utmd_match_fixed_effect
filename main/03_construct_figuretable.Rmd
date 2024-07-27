@@ -16,18 +16,6 @@ rm(list = ls())
 library(magrittr)
 library(ggplot2)
 library(modelsummary) # for N in datasummary
-result_benchmark_list_school_id_228 <-
-    readRDS(
-      file = 
-        here::here(
-          paste(
-            "output/",
-            "result_benchmark_list_school_id_228",
-            ".rds",
-            sep = ""
-          )
-        )
-    )
 result_school_id_228_constrained <-
     readRDS(
       file = 
@@ -71,30 +59,7 @@ timss_data_2007_school_id_228 <-
             )
           )
         )
-      ),
-    major_match = 
-      ifelse(
-        (
-          (stringr::str_detect(name,"physics"))&(major_physics=="YES")|
-            (stringr::str_detect(name,"chemistry"))&(major_chemistry=="YES")|
-            (stringr::str_detect(name,"biology"))&(major_bioligy=="YES")|
-            (stringr::str_detect(name,"earth"))&(major_earth=="YES")
-        ),
-        1,
-        0
-      ),
-    student_teacher_id = 
-      as.factor(
-        paste(
-          as.character(country_id),
-          as.character(student_id),
-          as.character(teacher_id),
-          sep="_"
-        )
       )
-  ) %>% 
-  dplyr::filter(
-    school_id == 228
   ) %>% 
   dplyr::arrange(
     subfield
@@ -115,7 +80,7 @@ timss_data_2007_school_id_228 <-
 
 
 ```{r, echo=FALSE, results="asis"}
-summary(result_school_id_228_constrained)
+#summary(result_school_id_228_constrained)
 names <-
   names(result_school_id_228_constrained$b.restr)
 beta_restr <-
