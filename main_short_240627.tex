@@ -47,7 +47,8 @@
 \noindent
 %150 words:
 We highlight that match fixed effects, represented by the coefficients of interaction terms involving dummy variables for two elements, lack identification without specific restrictions on parameters. Consequently, the coefficients typically reported as relative match fixed effects by statistical software are not interpretable. To address this, we establish normalization conditions that enable identification of match fixed effect parameters as interpretable indicators of unobserved match affinity, facilitating comparisons among observed matches.
-Using data from middle school students in the 2007 Trends in International Mathematics and Science Study (TIMSS), we highlight the distribution of comparable match fixed effects within a specific school.\\
+%\textcolor{blue}{Using data from middle school students in the 2007 Trends in International Mathematics and Science Study (TIMSS), we present the distribution of comparable match fixed effects.}
+\\
 %100 words AER
 \textbf{Keywords}: Match fixed effect, Affinity, Identification \\
 \textbf{JEL code}: C21, J24, J31, I26
@@ -58,19 +59,17 @@ Assessing the quality of matching and the degree of affinity between two entitie
 This methodology is prevalent in labor and education economics, where it plays a crucial role in managing and interpreting match quality across various pairs, such as teacher-student, worker-company, and worker-job relationships. Our study focuses on clarifying the process of identifying match fixed effects.
 
 As an illustrative example, \cite{inoue2023teachers} investigate the impact of a teacher's major on students' achievement using the following econometric model:
-\begin{align}
-    Y_{ifj} = \beta Major_{fj} + \delta_f + \eta_{ij} + \varepsilon_{ifj}, \label{eq:inoue_tanaka_specification}
-\end{align}
+\begin{align*}
+    Y_{ifj} = \beta Major_{fj} + \delta_f + \eta_{ij} + \varepsilon_{ifj},
+\end{align*}
 where \( Y_{ifj} \) represents the science test score of student \( i \) in subfield \( f \) within class \( j \). The parameter \( \beta \) denotes the coefficient of interest, and \( Major_{fj} \) is an indicator variable that indicates whether the teacher's major field in natural science matches the subfield of the student's test score. \( \delta_{f} \) denotes the fixed effect specific to subfield \( f \), while \( \eta_{ij} \) represents the student-teacher fixed effects, accounting for any subfield-invariant determinants of science test scores between student \( i \) and teacher \( j \), thereby capturing their unobserved affinity. The authors find a significant increase in R-squared upon introducing student-teacher fixed effects, underscoring the importance of match fixed effects in their analysis.
 
-Similar methodologies have been employed in other studies, such as examining the pitcher-catcher fixed effect on strikeout likelihood \citep{biolsi2022task}, worker-company fixed effects on worker income \citep{woodcock2015match, mittag2019simple}, worker-company fixed effects on worker turnover rates \citep{ferreira2011measuring}, student-school fixed effects on student scores \citep{ovidi2022parents}, teacher-school fixed effects on student test scores \citep{jackson2013match}, and student-university fixed effects on worker income post-graduation \citep{dillon2020consequences}. Additionally, studies have also controlled for two-way fixed effects, separately considering fixed effects on one side and the other.
-%\textcolor{blue}{Check TWFE in panel model.}
+Similar methodologies have been employed in other studies, such as examining the pitcher-catcher fixed effect on strikeout likelihood \citep{biolsi2022task}, worker-company fixed effects on worker income \citep{woodcock2015match, mittag2019simple}, worker-company fixed effects on worker turnover rates \citep{ferreira2011measuring}, student-school fixed effects on student scores \citep{ovidi2022parents}, teacher-school fixed effects on student test scores \citep{jackson2013match}, and student-university fixed effects on worker income post-graduation \citep{dillon2020consequences}. 
+%Additionally, studies have also controlled for two-way fixed effects, separately considering fixed effects on one side and the other.\textcolor{blue}{Check TWFE in panel model.}
 
 The interpretation of reported parameters of match fixed effects as indicators of affinity for comparison with all matches remains ambiguous, despite their widespread estimation. To address this issue, our paper centers on a standard match fixed effect model and distinguishes between relative and absolute match fixed effects. We contend that absolute match fixed effects lack identification in the absence of specific restrictions, whereas relative match fixed effects are identifiable.
 Subsequently, we introduce location normalization conditions that make identification and interpretation of absolute match fixed effect parameters possible. These conditions validate comparisons of unobserved match quality between individuals, thereby enhancing the understanding of unobserved affinity in empirical research contexts.
 
-Finally, we apply our approach to the subset of the data used in \cite{inoue2023teachers} and illustrate the distribution of unobserved match qualities between students and teachers within a specific school.
-We find that some teacher excels with high-achieving students but struggles with lower-achieving ones, whereas the other teacher performs better with lower-achieving students in terms of unobserved match affinity.
 
 
 \section{Model}
@@ -97,7 +96,7 @@ In the context of the standard fixed effect model, when there are \( I \) groups
 \end{align}
 where the first line is a constant parameter normalized to worker 1 and job category 1 which are arbitrarily chosen, the second line is called job category $j$'s \textit{relative} fixed effect which is the fixed effect relative to job category 1's fixed effects, the third line is called worker $i$'s \textit{relative} fixed effect which is the fixed effect relative to worker 1's fixed effects, the third line is called the \textit{relative} match effect of worker $i$ and job category $j$ relative to worker 1 and job category 1.
 Avoiding multicollinearity, we can identify and estimate these relative fixed effects and $\gamma$ instead of absolute fixed effects. 
-Statistical software automatically reports the estimates of the relative fixed effects.\footnote{Author's github page provides Monte Carlo simulation code and results for investigating finite sample performance on estimating relative fixed effects and replication files for our empirical exercises.}
+Statistical software automatically reports the estimates of the relative fixed effects.\footnote{Author's github page provides Monte Carlo simulation code and results for investigating finite sample performance on estimating relative fixed effects.}
 
 The direct interpretation of relative fixed effects is that they indicate how well a match compares to a specific reference match, rather than categorizing a match as inherently "good" or "bad" in comparison to all other matches. When researchers aim to simply control for match fixed effects, using relative match fixed effects suffices. However, if the researcher's focus is solely on the overall affinity without distinguishing between observed and unobserved components, the predicted value of \( Y_{ijt} \) derived from relative fixed effects serves adequately.
 On the other hand, if the goal is to measure and understand unobserved affinity, such as the quality of personality match, relative match fixed effects become meaningless. In such cases, obtaining absolute fixed effects becomes essential for meaningful comparison and interpretation of unobserved affinity.
@@ -133,30 +132,18 @@ and all the other relative match effect is calculated from $\mu'_1$ and $\mu'_2$
      \mu_{23} &= - \frac{\mu'_{1}}{6} + \frac{\mu'_{2}}{3}
 \end{align*}
 
-\section{Empirical exercise}
+%\section{Empirical exercise}
+
+%\textcolor{blue}{As in \cite{inoue2023teachers}, we use data of middle school students, taken from the Trends in International Mathematics and Science Study (TIMSS) for 2007. Using the same specification as \cite{inoue2023teachers}, we estimate relative match fixed effects without location normalization and absolute match fixed effects with location normalization. Then, we compare these distributions or only provides the distribution of absolute match fixed effects. [TBA]}
 
 
-\begin{figure}[!ht]
-\begin{center}
-\includegraphics[height = 0.6\textheight]{figuretable/heatmap_match_effect.png}
-\end{center}
-\caption{Heatmap of absolute match fixed effects}\footnotesize
-\textit{Notes}: The data records a specific school (school id 228) which has five teachers and 90 students and their test scores on each subject. The blank cell shows no match in the data. The estimated coefficient of the major match in Equation \eqref{eq:inoue_tanaka_specification} is 497.56 (Standard error: 8.0).
-\label{fg:heatmap_match_effect}
-\end{figure}
 
-
-We use data from the 2007 Trends in International Mathematics and Science Study (TIMSS), as in \cite{inoue2023teachers}, which includes middle school students' test scores in various science subfields (physics, chemistry, biology, and Earth science) along with teacher-related variables. For details, see \cite{inoue2023teachers}. To illustrate unobserved student-teacher match affinity, we use data from a specific school (ID 228) with five teachers and 90 students, following Equation \eqref{eq:inoue_tanaka_specification} to estimate absolute match fixed effects with location normalization. We omit subfield variables due to multicollinearity with student-teacher interaction dummies, as some subjects are taught exclusively by certain teachers in this school.
-
-Figure \ref{fg:heatmap_match_effect} illustrates the heatmap of absolute match fixed effects. We observe that teacher ID 22802 shows better absolute match effects with high-performing students but poorer effects with low-performing students, while teacher ID 22804 exhibits the opposite pattern. This suggests that teacher 22802 excels with high-achieving students but struggles with lower-achieving ones, whereas teacher 22804 performs better with lower-achieving students.
-Additionally, absolute match effects provide a comparable measure unlike relative match effects. For example, the match effect for student ID 2280201 and teacher ID 22802 is 76.34, compared to 44.57 for student ID 2280115 and teacher ID 22804, which indicates that the former match has 1.75 times higher unobserved affinity than the latter.
-Therefore, obtaining absolute fixed effects becomes essential for meaningful comparison and interpretation of unobserved affinity.
 
 
 
 \section{Conclusion}
 We investigate the estimation of affinities through match fixed effects, decomposing them into observed and unobserved components. It is emphasized that without appropriate restrictions, we can only estimate relative fixed effects—fixed effects relative to normalized values—that lack interpretability as affinities. To achieve meaningful interpretations of absolute match effects, we introduce theoretical constraints on parameters.
-Using data of middle school students, taken from the Trends in International Mathematics and Science Study (TIMSS) for 2007, we illustrate the distribution of absolute match fixed effects and highlight the importance.
+%\textcolor{blue}{Using data of middle school students, taken from the Trends in International Mathematics and Science Study (TIMSS) for 2007, we provide the distribution of absolute match fixed effects.}
 
 \paragraph{Acknowledgments}
 We thank Shunya Noda and Shosei Sakaguchi for their valuable advice. This work was supported by JST ERATO Grant Number JPMJER2301, Japan.
