@@ -125,7 +125,8 @@ x <-
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1, size = rel(0.2)),
     legend.text = element_text(size = rel(0.5)),  #
-    legend.title = element_text(size = rel(0.5)) 
+    legend.title = element_text(size = rel(0.5)) ,
+    legend.position = 'top',
   )
 x
 figure_name <-
