@@ -6,4 +6,5 @@
 *.csv
 *.xlsx
 *.pdf
+*.zip
 /input
